@@ -10,6 +10,8 @@
 
 const int RANGER_MAIN_FEEDBACK_WITH_ENCODERS_EVENT=1;
 const int RANGER_SET_SPEED_EVENT=4;
+const int ENABLE_ENCODERS=5;
+const int ENABLE_FEEDBACK=12;
 
 struct RangerAsebaBridge: public Dashel::Hub, public Aseba::DescriptionsManager
 {

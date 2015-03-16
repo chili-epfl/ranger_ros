@@ -20,6 +20,12 @@ RangerAsebaBridge::RangerAsebaBridge(const char* target):
     GetDescription getDescription;
     getDescription.serialize(targetStream);
     targetStream->flush();
+    
+    // emit event to enable feedback and encoders
+	vector<int> arg; 
+	arg.push_back(1);   
+    emit(ENABLE_ENCODERS, arg);
+    emit(ENABLE_FEEDBACK, arg);
 }
 
 bool RangerAsebaBridge::isValid() const
