@@ -33,6 +33,47 @@ bool RangerAsebaBridge::isValid() const
     return targetStream;
 }
 
+float RangerAsebaBridge::scaleInterpolation(int val) const
+{
+    float weightInKg= 0;
+
+    if (val > SCALE_EMPTY_RAW_VALUE)
+    {
+        weightInKg = (val-SCALE_EMPTY_RAW_VALUE)*SCALE_KG_PER_RAW_UNIT;
+    }
+    return weightInKg;
+}
+
+//float RangerAsebaBridge::scaleInterpolation(int val) const
+//{
+
+//    bool negative = (SCALE_REFS[0][1] > SCALE_REFS[(SCALE_REFS_NROWS-1)][1]);
+
+//    if ( (negative && val > SCALE_REFS[0][1]) || (!negative && val < SCALE_REFS[0][1]) )
+//    {
+//        return SCALE_REFS[0][0];
+//    }
+//    int pd = SCALE_REFS[0][0];
+//    int pv = SCALE_REFS[0][1];
+
+//    for (int nRow = 0; nRow < SCALE_REFS_NROWS; nRow++)
+//    {
+//        int d = SCALE_REFS[nRow][0];
+//        int v = SCALE_REFS[nRow][1];
+
+//        if ( (negative && val > v) || (!negative && val < v) )
+//        {
+//            float a = float(pd - d) / (pv - v);
+//            float b = float(d * pv - v * pd) / (pv -v);
+//            return a * val + b;
+//        }
+//        pd = d;
+//        pv = v;
+//    }
+
+//    return SCALE_REFS[(SCALE_REFS_NROWS-1)][0];
+//}
+
 void RangerAsebaBridge::incomingData(Dashel::Stream *stream)
 {
     // receive message
@@ -61,6 +102,8 @@ void RangerAsebaBridge::incomingData(Dashel::Stream *stream)
             l_encoder = -userMessage->data[15];
             r_encoder = userMessage->data[13];
             is_charging = (userMessage->data[17] != 0);
+            scale = scaleInterpolation(userMessage->data[7]);
+//            scale = (userMessage->data[7]);
         }
     }
 

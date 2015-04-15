@@ -1,9 +1,13 @@
 #include <string>
 #include <utility> // std::pair
 
+#include <boost/assign/list_of.hpp> // for 'list_of()'
+#include <boost/assert.hpp> 
+
 #include <ros/ros.h>
 #include <tf/transform_broadcaster.h>
 #include <nav_msgs/Odometry.h>
+#include <std_msgs/Float64.h>
 #include <geometry_msgs/Twist.h>
 #include "aseba.h"
 #include "odometry.h"
@@ -18,11 +22,18 @@ T clamp(const T& n, const T& lower, const T& upper) {
       return std::max(lower, std::min(n, upper));
 }
 
+template <typename T>
+double getClampRatio(const T& n, const T& lower, const T& upper) {
+	  T clampedSpeed = std::max(lower, std::min(n, upper));
+      return 1.0*clampedSpeed/n;
+}
+
 class Ranger {
 
 public:
 
     RangerOdometry odom;
+    float scaleValue;
 
     Ranger(const string& aseba_target):aseba_node(aseba_target.c_str()) {
         // check whether connection was successful
@@ -37,6 +48,8 @@ public:
     void step() {
         aseba_node.Hub::step(); // check for incoming Aseba events
 
+        scaleValue = aseba_node.scale;
+
         if (aseba_node.is_charging) {
             odom.reset(0.35, 0., 0.);
         }
@@ -48,9 +61,19 @@ public:
     void set_speed(const geometry_msgs::Twist& msg) {
 
         pair<double, double> speeds = odom.twist_to_motors(msg.linear.x, msg.angular.z);
-        int lspeed = clamp<int>(speeds.first * 100./ MAX_SPEED, -100, 100);
-        int rspeed = clamp<int>(speeds.second * 100./ MAX_SPEED, -100, 100);
-
+        pair<double, double> speedScaled;
+        
+        speedScaled.first = speeds.first * 100./ MAX_SPEED;
+        speedScaled.second = speeds.second * 100./ MAX_SPEED;
+        		
+		double clampRatioL = getClampRatio<int>(speedScaled.first, -100, 100);
+		double clampRatioR = getClampRatio<int>(speedScaled.second, -100, 100);
+				
+		double clampRatio =  std::min(clampRatioL, clampRatioR);
+		
+		int lspeed = round(speedScaled.first * clampRatio);
+		int rspeed = round(speedScaled.second * clampRatio);
+		
         aseba_node.setSpeed(lspeed, -rspeed);
 
     }
@@ -71,6 +94,8 @@ int main(int argc, char** argv){
 
     ros::NodeHandle n;
     ros::Publisher odom_pub = n.advertise<nav_msgs::Odometry>("odom", 50);
+    ros::Publisher scale_pub = n.advertise<std_msgs::Float64>("ranger_scale", 50);
+
     tf::TransformBroadcaster odom_broadcaster;
 
     ros::Subscriber cmd_vel_sub = n.subscribe<const geometry_msgs::Twist&>("cmd_vel", 1, &Ranger::set_speed, &ranger);
@@ -80,7 +105,7 @@ int main(int argc, char** argv){
     current_time = ros::Time::now();
     last_time = ros::Time::now();
 
-    ros::Rate r(11.0); // Aseba low-level publishes encoders at ~10Hz
+    ros::Rate r(30.0); // Aseba low-level publishes encoders at ~10Hz
 
     double x, y, th, dx, dr;
 
@@ -131,9 +156,22 @@ int main(int argc, char** argv){
         odom.twist.twist.linear.x = dx;
         odom.twist.twist.linear.y = 0.0;
         odom.twist.twist.angular.z = dr;
+        
+        //set the covariance
+        odom.pose.covariance =  boost::assign::list_of(1e-3) (0) (0)  (0)  (0)  (0)
+													   (0) (1e-3)  (0)  (0)  (0)  (0)
+													   (0)   (0)  (1e6) (0)  (0)  (0)
+													   (0)   (0)   (0) (1e6) (0)  (0)
+													   (0)   (0)   (0)  (0) (1e6) (0)
+													   (0)   (0)   (0)  (0)  (0)  (1e3) ;
 
-        //publish the message
+        //publish the odom message
         odom_pub.publish(odom);
+
+        //publish the scale (weight) message
+        std_msgs::Float64 weight;
+        weight.data = ranger.scaleValue;
+        scale_pub.publish(weight);
 
         last_time = current_time;
         r.sleep();
