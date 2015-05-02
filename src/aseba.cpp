@@ -103,7 +103,7 @@ void RangerAsebaBridge::incomingData(Dashel::Stream *stream)
             r_encoder = userMessage->data[13];
             is_charging = (userMessage->data[17] != 0);
             scale = scaleInterpolation(userMessage->data[7]);
-//            scale = (userMessage->data[7]);
+            voltage = userMessage->data[5];
         }
     }
 

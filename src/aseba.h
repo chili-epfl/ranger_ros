@@ -12,7 +12,7 @@ const int RANGER_MAIN_FEEDBACK_WITH_ENCODERS_EVENT=1;
 const int RANGER_SET_SPEED_EVENT=4;
 const int ENABLE_ENCODERS=5;
 const int ENABLE_FEEDBACK=12;
-// constant for linear scale interpolation
+// constants for linear scale interpolation
 const int SCALE_EMPTY_RAW_VALUE = 6000;
 const double SCALE_KG_PER_RAW_UNIT = 0.0008755615;
 
@@ -48,6 +48,7 @@ public:
     // Ranger specific
     int l_encoder, r_encoder;
     float scale;
+    float voltage;
     bool is_charging;
 
     void setSpeed(int l_wheel, int r_wheel);
