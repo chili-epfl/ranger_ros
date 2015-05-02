@@ -3,6 +3,18 @@
 
 #include <boost/assign/list_of.hpp> // for 'list_of()'
 #include <boost/assert.hpp> 
+// for sliding averages
+#include <boost/accumulators/accumulators.hpp>
+#include <boost/accumulators/statistics/stats.hpp>
+#include <boost/accumulators/statistics/mean.hpp>
+#include <boost/accumulators/statistics/moment.hpp>
+#include <boost/circular_buffer.hpp>            // circular queue
+#include <boost/bind.hpp>
+#include <boost/ref.hpp>
+
+
+using namespace boost::accumulators;
+
 
 #include <ros/ros.h>
 #include <tf/transform_broadcaster.h>
@@ -34,6 +46,7 @@ public:
 
     RangerOdometry odom;
     float scaleValue;
+    float voltage;
 
     Ranger(const string& aseba_target):aseba_node(aseba_target.c_str()) {
         // check whether connection was successful
@@ -49,6 +62,7 @@ public:
         aseba_node.Hub::step(); // check for incoming Aseba events
 
         scaleValue = aseba_node.scale;
+        voltage  = aseba_node.voltage;
 
         if (aseba_node.is_charging) {
             odom.reset(0.35, 0., 0.);
@@ -84,7 +98,7 @@ private:
 };
 
 int main(int argc, char** argv){
-    ros::init(argc, argv, "ranger_odometry_publisher");
+    ros::init(argc, argv, "ranger");
 
     ros::NodeHandle nh("~");
     string aseba_target = "";
@@ -95,6 +109,7 @@ int main(int argc, char** argv){
     ros::NodeHandle n;
     ros::Publisher odom_pub = n.advertise<nav_msgs::Odometry>("odom", 50);
     ros::Publisher scale_pub = n.advertise<std_msgs::Float64>("ranger_scale", 50);
+    ros::Publisher voltage_pub = n.advertise<std_msgs::Float64>("voltage", 50);
 
     tf::TransformBroadcaster odom_broadcaster;
 
@@ -105,11 +120,18 @@ int main(int argc, char** argv){
     current_time = ros::Time::now();
     last_time = ros::Time::now();
 
-    ros::Rate r(30.0); // Aseba low-level publishes encoders at ~10Hz
+    ros::Rate r(11.0); // Aseba low-level publishes encoders at ~10Hz
 
     double x, y, th, dx, dr;
 
+    // scale and voltage values will be accumulated and publised only at rate/5 ~2Hz
+    int window_size = 5;
+    int counter = 0;
+    float voltage_mean = 0;
+    float weight_mean = 0;
+
     while(n.ok()){
+
 
         ros::spinOnce();               // check for incoming messages
         ranger.step();
@@ -168,10 +190,32 @@ int main(int argc, char** argv){
         //publish the odom message
         odom_pub.publish(odom);
 
-        //publish the scale (weight) message
-        std_msgs::Float64 weight;
-        weight.data = ranger.scaleValue;
-        scale_pub.publish(weight);
+        //increase counter and take mod window size
+        counter++;
+        counter = counter % window_size;
+        // accumulate weight and voltages
+        weight_mean += ranger.scaleValue/window_size;
+        voltage_mean += ranger.voltage/window_size;
+
+        //prepare messages and publish if accumulated
+        if (counter==0) {
+            std_msgs::Float64 weight;
+            std_msgs::Float64 voltage;
+
+            // set msg data
+            weight.data = weight_mean;
+            voltage.data = voltage_mean;
+
+            //publish the scale (weight) message
+            scale_pub.publish(weight);
+            //publish battery voltage message
+            voltage_pub.publish(voltage);
+
+            // reset means
+            voltage_mean = 0;
+            weight_mean = 0;
+
+        }
 
         last_time = current_time;
         r.sleep();
