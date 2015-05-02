@@ -47,8 +47,8 @@ public:
 
     // Ranger specific
     int l_encoder, r_encoder;
-    float scale;
-    float voltage;
+    float scale;		// measured weight, in kg
+    float voltage;		// battery level, in mV
     bool is_charging;
 
     void setSpeed(int l_wheel, int r_wheel);

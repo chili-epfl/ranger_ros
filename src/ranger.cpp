@@ -14,6 +14,10 @@
 
 const double MAX_SPEED = .16; //m.s^-1 on the wheels for ranger2
 
+static const int BATTERY_MAX_LEVEL = 8400;          //mV
+static const int BATTERY_MIN_CHARGED_LEVEL = 8000;  //mV
+static const int BATTERY_LOW_THRESHOLD = 7200;      //mV
+
 using namespace std;
 
 
@@ -97,12 +101,15 @@ int main(int argc, char** argv){
     ros::NodeHandle n;
     ros::Publisher odom_pub = n.advertise<nav_msgs::Odometry>("odom", 50);
     ros::Publisher scale_pub = n.advertise<std_msgs::Float64>("ranger_scale", 50);
-    ros::Publisher voltage_pub = n.advertise<std_msgs::Float64>("voltage", 50);
+
+    // TODO: future work - make /diagnostics (diagnostic_msgs/DiagnosticArray) topic instead
+    // publishers for robot battery status - voltage and level
+    ros::Publisher voltage_pub =    n.advertise<std_msgs::Float64>("voltage", 50);
+    ros::Publisher bat_level_pub =  n.advertise<std_msgs::Float64>("battery_level", 50);
 
     tf::TransformBroadcaster odom_broadcaster;
 
     ros::Subscriber cmd_vel_sub = n.subscribe<const geometry_msgs::Twist&>("cmd_vel", 1, &Ranger::set_speed, &ranger);
-
 
     ros::Time current_time, last_time;
     current_time = ros::Time::now();
@@ -112,7 +119,7 @@ int main(int argc, char** argv){
 
     double x, y, th, dx, dr;
 
-    // scale and voltage values will be accumulated and publised only at rate/5 ~2Hz
+    // scale and voltage values will be accumulated and published only at rate/5 ~2Hz
     int window_size = 5;
     int counter = 0;
     float voltage_mean = 0;
@@ -120,12 +127,10 @@ int main(int argc, char** argv){
 
     while(n.ok()){
 
-
         ros::spinOnce();               // check for incoming messages
         ranger.step();
 
         current_time = ros::Time::now();
-
 
         x = ranger.odom.get_x();
         y = ranger.odom.get_y();
@@ -189,15 +194,21 @@ int main(int argc, char** argv){
         if (counter==0) {
             std_msgs::Float64 weight;
             std_msgs::Float64 voltage;
-
+            std_msgs::Float64 bat_level;
             // set msg data
             weight.data = weight_mean;
             voltage.data = voltage_mean;
+
+            bat_level.data = float(voltage.data - BATTERY_LOW_THRESHOLD) / (BATTERY_MAX_LEVEL - BATTERY_LOW_THRESHOLD);
+            bat_level.data = (bat_level.data>1)?1:bat_level.data;
 
             //publish the scale (weight) message
             scale_pub.publish(weight);
             //publish battery voltage message
             voltage_pub.publish(voltage);
+
+
+            bat_level_pub.publish(bat_level);
 
             // reset means
             voltage_mean = 0;

@@ -36,9 +36,8 @@ bool RangerAsebaBridge::isValid() const
 float RangerAsebaBridge::scaleInterpolation(int val) const
 {
     float weightInKg= 0;
-
-    if (val > SCALE_EMPTY_RAW_VALUE)
-    {
+	// linear interpolation of scale
+    if (val > SCALE_EMPTY_RAW_VALUE) {
         weightInKg = (val-SCALE_EMPTY_RAW_VALUE)*SCALE_KG_PER_RAW_UNIT;
     }
     return weightInKg;
