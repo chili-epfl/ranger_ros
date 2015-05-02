@@ -3,18 +3,6 @@
 
 #include <boost/assign/list_of.hpp> // for 'list_of()'
 #include <boost/assert.hpp> 
-// for sliding averages
-#include <boost/accumulators/accumulators.hpp>
-#include <boost/accumulators/statistics/stats.hpp>
-#include <boost/accumulators/statistics/mean.hpp>
-#include <boost/accumulators/statistics/moment.hpp>
-#include <boost/circular_buffer.hpp>            // circular queue
-#include <boost/bind.hpp>
-#include <boost/ref.hpp>
-
-
-using namespace boost::accumulators;
-
 
 #include <ros/ros.h>
 #include <tf/transform_broadcaster.h>
