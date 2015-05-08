@@ -37,6 +37,9 @@ class Ranger {
 public:
 
     RangerOdometry odom;
+
+    ros::WallTime last_cmd_vel_time = ros::WallTime::now();
+
     float scaleValue;
     float voltage;
 
@@ -66,6 +69,8 @@ public:
 
     void set_speed(const geometry_msgs::Twist& msg) {
 
+        last_cmd_vel_time = ros::WallTime::now();
+
         pair<double, double> speeds = odom.twist_to_motors(msg.linear.x, msg.angular.z);
         pair<double, double> speedScaled;
         
@@ -89,6 +94,25 @@ private:
 
 };
 
+double median(vector<float> scores)
+{
+  double median;
+  size_t size = scores.size();
+
+  sort(scores.begin(), scores.end());
+
+  if (size  % 2 == 0)
+  {
+      median = (scores[size / 2 - 1] + scores[size / 2]) / 2;
+  }
+  else
+  {
+      median = scores[size / 2];
+  }
+
+  return median;
+}
+
 int main(int argc, char** argv){
     ros::init(argc, argv, "ranger");
 
@@ -100,7 +124,7 @@ int main(int argc, char** argv){
 
     ros::NodeHandle n;
     ros::Publisher odom_pub = n.advertise<nav_msgs::Odometry>("odom", 50);
-    ros::Publisher scale_pub = n.advertise<std_msgs::Float64>("ranger_scale", 50);
+    ros::Publisher scale_pub = n.advertise<std_msgs::Float64>("scale", 50);
 
     // TODO: future work - make /diagnostics (diagnostic_msgs/DiagnosticArray) topic instead
     // publishers for robot battery status - voltage and level
@@ -119,11 +143,16 @@ int main(int argc, char** argv){
 
     double x, y, th, dx, dr;
 
-    // scale and voltage values will be accumulated and published only at rate/5 ~2Hz
-    int window_size = 5;
+    // scale and voltage values will be accumulated and published only at rate/4 ~3Hz
+    int window_size = 4;
     int counter = 0;
     float voltage_mean = 0;
     float weight_mean = 0;
+    vector<float> weights(window_size);
+    // as well low-pass can be applied
+    //e.g.
+    //  for i from 1 to n
+    //  y[i] := y[i-1] + α * (x[i] - y[i-1])
 
     while(n.ok()){
 
@@ -189,6 +218,7 @@ int main(int argc, char** argv){
         // accumulate weight and voltages
         weight_mean += ranger.scaleValue/window_size;
         voltage_mean += ranger.voltage/window_size;
+        weights[counter] = ranger.scaleValue;
 
         //prepare messages and publish if accumulated
         if (counter==0) {
@@ -196,7 +226,7 @@ int main(int argc, char** argv){
             std_msgs::Float64 voltage;
             std_msgs::Float64 bat_level;
             // set msg data
-            weight.data = weight_mean;
+            weight.data = median(weights);
             voltage.data = voltage_mean;
 
             bat_level.data = float(voltage.data - BATTERY_LOW_THRESHOLD) / (BATTERY_MAX_LEVEL - BATTERY_LOW_THRESHOLD);
@@ -206,14 +236,20 @@ int main(int argc, char** argv){
             scale_pub.publish(weight);
             //publish battery voltage message
             voltage_pub.publish(voltage);
-
-
+            //publish battery level message
             bat_level_pub.publish(bat_level);
 
             // reset means
             voltage_mean = 0;
             weight_mean = 0;
 
+        }
+
+
+        if (ros::WallTime::now() - ranger.last_cmd_vel_time > ros::WallDuration(1.0))
+        {
+            // if there were no velocity command over last second, stop robot
+            ranger.set_speed(geometry_msgs::Twist());
         }
 
         last_time = current_time;
