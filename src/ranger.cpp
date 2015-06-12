@@ -125,6 +125,7 @@ int main(int argc, char** argv){
     ros::NodeHandle n;
     ros::Publisher odom_pub = n.advertise<nav_msgs::Odometry>("odom", 50);
     ros::Publisher scale_pub = n.advertise<std_msgs::Float64>("scale", 50);
+    ros::Publisher scale_raw_pub = n.advertise<std_msgs::Float64>("scale_raw", 50);
 
     // TODO: future work - make /diagnostics (diagnostic_msgs/DiagnosticArray) topic instead
     // publishers for robot battery status - voltage and level
@@ -220,8 +221,13 @@ int main(int argc, char** argv){
         voltage_mean += ranger.voltage/window_size;
         weights[counter] = ranger.scaleValue;
 
+        std_msgs::Float64 weight_raw;
+        weight_raw.data = ranger.scaleValue;
+        //publish the raw scale (weight) message
+        scale_raw_pub.publish(weight_raw);
         //prepare messages and publish if accumulated
         if (counter==0) {
+
             std_msgs::Float64 weight;
             std_msgs::Float64 voltage;
             std_msgs::Float64 bat_level;
