@@ -4,7 +4,7 @@
     <!-- odometry + cmd_vel. Map is published as well. Comment the line below if you are using localization 
     <node name="map_odom_transform" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 /map /odom 10"/> 
     -->
-    <node pkg="ranger_ros" type="ranger_motors" name="ranger_motors">
+    <node pkg="ranger_ros" type="ranger_sensors" name="ranger_sensors">
 		<param name="aseba_target" value="tcp:10.0.0.190;port=33333" />
     </node>
     <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" /> 

@@ -15,10 +15,10 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package()
 
 include_directories(${catkin_INCLUDE_DIRS})
-add_executable(ranger_motors src/aseba.cpp src/ranger.cpp src/odometry.cpp)
-target_link_libraries(ranger_motors ${catkin_LIBRARIES})
+add_executable(ranger_sensors src/aseba.cpp src/ranger.cpp src/odometry.cpp)
+target_link_libraries(ranger_sensors ${catkin_LIBRARIES})
 
-install(TARGETS ranger_motors
+install(TARGETS ranger_sensors
     RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION} )
 
 
